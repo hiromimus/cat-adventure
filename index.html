@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ネコの冒険～フィッシュラン～</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{overflow:hidden;background:#4a7a3a;font-family:'Zen Maru Gothic',sans-serif;}
+canvas{display:block;}
+
+#hud{position:fixed;top:0;left:0;right:0;padding:14px 20px;z-index:10;display:flex;justify-content:space-between;align-items:center;pointer-events:none;}
+#hud-left{display:flex;gap:18px;align-items:center;}
+.hud-item{background:rgba(20,40,10,0.55);backdrop-filter:blur(8px);padding:6px 14px;border-radius:20px;color:#f0f8e0;font-size:14px;font-weight:700;letter-spacing:1px;border:1.5px solid rgba(180,220,140,0.3);text-shadow:0 1px 4px rgba(0,0,0,0.4);}
+#score-display{color:#ffe066;}
+#lives-display{color:#ff8888;}
+#combo-display{color:#88eeff;opacity:0;transition:opacity 0.3s;}
+
+#start-screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(15,50,90,0.7) 0%, transparent 35%),
+    radial-gradient(ellipse at 30% 85%, rgba(20,70,110,0.4) 0%, transparent 25%),
+    radial-gradient(ellipse at 70% 30%, rgba(80,160,80,0.2) 0%, transparent 30%),
+    linear-gradient(180deg, #5a9a48 0%, #3a7a40 45%, #2a6a50 70%, #1a4a68 100%);
+  transition:opacity 0.8s;}
+#start-screen h1{font-size:36px;color:#f8f0d0;text-shadow:0 3px 20px rgba(0,0,0,0.3),0 0 60px rgba(100,180,60,0.3);margin-bottom:6px;text-align:center;}
+#start-screen p{color:#c0d8a0;font-size:13px;margin-bottom:30px;letter-spacing:1px;}
+#controls-hint{color:#a0c080;font-size:11px;margin-top:18px;line-height:1.8;text-align:center;}
+
+/* ── Cat color picker ── */
+#cat-picker{margin:20px 0 8px 0;text-align:center;}
+#cat-picker-label{color:#c0d8a0;font-size:13px;font-weight:700;margin-bottom:10px;display:block;}
+#color-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:320px;margin:0 auto;}
+.color-swatch{width:40px;height:40px;border-radius:50%;cursor:pointer;border:3px solid rgba(255,255,255,0.15);
+  transition:all 0.2s;position:relative;box-shadow:0 2px 8px rgba(0,0,0,0.3);}
+.color-swatch:hover{transform:scale(1.15);border-color:rgba(255,255,255,0.5);}
+.color-swatch.selected{border-color:#ffe066;transform:scale(1.2);
+  box-shadow:0 0 16px rgba(255,220,80,0.5),0 2px 8px rgba(0,0,0,0.3);}
+#picker-hint{color:#88b878;font-size:11px;margin-top:6px;min-height:16px;transition:opacity 0.3s;}
+.color-swatch.confirmed{border-color:#ffe066;transform:scale(1.25);
+  box-shadow:0 0 20px rgba(255,220,80,0.7),0 0 40px rgba(255,200,50,0.3),0 2px 8px rgba(0,0,0,0.3);
+  animation:confirm-pulse 0.5s ease-out;}
+@keyframes confirm-pulse{0%{transform:scale(1.5);}50%{transform:scale(1.15);}100%{transform:scale(1.25);}}
+#start-btn{font-family:inherit;font-size:16px;padding:14px 40px;border:2px solid rgba(240,230,180,0.5);
+  background:rgba(80,140,50,0.7);color:#f8f0d0;cursor:pointer;border-radius:30px;letter-spacing:2px;
+  transition:all 0.4s;backdrop-filter:blur(8px);opacity:0;transform:translateY(10px);pointer-events:none;}
+#start-btn.visible{opacity:1;transform:translateY(0);pointer-events:auto;}
+#start-btn:hover{background:rgba(100,170,60,0.8);transform:translateY(-2px);box-shadow:0 6px 25px rgba(0,0,0,0.2);}
+#game-over{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(10,20,5,0.85);backdrop-filter:blur(6px);}
+#game-over h2{font-size:32px;color:#ff8888;margin-bottom:10px;}
+#game-over .final-score{font-size:22px;color:#ffe066;margin-bottom:24px;}
+#restart-btn{font-family:inherit;font-size:14px;padding:12px 36px;border:2px solid rgba(255,200,100,0.4);
+  background:rgba(80,140,50,0.7);color:#f8f0d0;cursor:pointer;border-radius:30px;letter-spacing:2px;transition:all 0.3s;}
+#restart-btn:hover{background:rgba(100,170,60,0.9);}
+
+#damage-flash{position:fixed;inset:0;z-index:50;background:rgba(255,50,50,0.3);pointer-events:none;opacity:0;transition:opacity 0.15s;}
+
+/* ── Milestone celebration overlay ── */
+#milestone-flash{position:fixed;inset:0;z-index:60;pointer-events:none;opacity:0;transition:opacity 0.5s;}
+#milestone-flash.active{opacity:1;}
+#milestone-flash .glow{position:absolute;inset:0;
+  background:radial-gradient(ellipse at center, rgba(255,215,50,0.35) 0%, rgba(255,180,30,0.15) 40%, transparent 70%);}
+#milestone-flash .ring{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+#milestone-flash .ring::before{content:'';width:300px;height:300px;border-radius:50%;
+  border:4px solid rgba(255,220,80,0.6);animation:milestone-ring 1.5s ease-out forwards;opacity:0;}
+@keyframes milestone-ring{0%{transform:scale(0.3);opacity:1;}100%{transform:scale(3);opacity:0;}}
+#milestone-text{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:61;
+  font-size:48px;font-weight:700;color:#ffe066;text-shadow:0 0 30px rgba(255,200,50,0.8),0 0 60px rgba(255,160,30,0.4),0 4px 20px rgba(0,0,0,0.5);
+  pointer-events:none;opacity:0;transition:opacity 0.4s,transform 0.6s;}
+#milestone-text.active{opacity:1;transform:translate(-50%,-50%) scale(1.1);}
+#milestone-sub{position:fixed;top:58%;left:50%;transform:translate(-50%,0);z-index:61;
+  font-size:18px;color:#fff8d0;text-shadow:0 2px 15px rgba(0,0,0,0.5);
+  pointer-events:none;opacity:0;transition:opacity 0.4s;}
+#milestone-sub.active{opacity:1;}
+
+/* ── Sparkle particles ── */
+.sparkle{position:fixed;width:8px;height:8px;border-radius:50%;pointer-events:none;z-index:62;
+  background:radial-gradient(circle, #ffe880 0%, #ffaa20 100%);
+  animation:sparkle-fly 1.5s ease-out forwards;}
+@keyframes sparkle-fly{
+  0%{opacity:1;transform:translate(0,0) scale(1);}
+  100%{opacity:0;transform:translate(var(--sx),var(--sy)) scale(0);}
+}
+
+/* ── HUD buttons (top-right) ── */
+#hud-right{display:flex;gap:8px;align-items:center;pointer-events:auto;}
+.hud-btn{background:rgba(20,40,10,0.55);backdrop-filter:blur(8px);padding:5px 12px;border-radius:16px;
+  color:#d0e8c0;font-size:12px;font-weight:700;border:1.5px solid rgba(180,220,140,0.3);
+  cursor:pointer;transition:all 0.2s;font-family:inherit;letter-spacing:0.5px;}
+.hud-btn:hover{background:rgba(60,120,40,0.7);color:#f0f8e0;transform:translateY(-1px);}
+
+/* ── Help panel ── */
+#help-panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:120;
+  background:rgba(15,30,10,0.92);backdrop-filter:blur(12px);border-radius:20px;padding:28px 34px;
+  border:2px solid rgba(150,200,120,0.3);color:#d0e8c0;max-width:420px;width:90%;
+  display:none;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+#help-panel h3{font-size:20px;color:#f8f0d0;text-align:center;margin-bottom:4px;}
+#help-panel .section-title{font-size:13px;color:#ffe066;font-weight:700;margin-top:6px;}
+#help-panel .keys{font-size:12px;line-height:2;color:#c0d8a8;}
+#help-panel .keys kbd{background:rgba(255,255,255,0.1);padding:2px 8px;border-radius:6px;
+  border:1px solid rgba(255,255,255,0.15);font-family:inherit;color:#f0f8e0;font-size:11px;}
+#help-close{align-self:center;margin-top:6px;}
+
+/* ── Quit confirm ── */
+#quit-confirm{position:fixed;inset:0;z-index:130;display:none;flex-direction:column;
+  align-items:center;justify-content:center;background:rgba(10,20,5,0.88);backdrop-filter:blur(6px);}
+#quit-confirm .quit-box{background:rgba(15,30,10,0.95);border-radius:20px;padding:30px 40px;
+  border:2px solid rgba(150,200,120,0.3);text-align:center;max-width:360px;}
+#quit-confirm h3{font-size:22px;color:#f8f0d0;margin-bottom:8px;}
+#quit-confirm .quit-score{font-size:18px;color:#ffe066;margin-bottom:20px;}
+#quit-confirm .quit-btns{display:flex;gap:14px;justify-content:center;}
+
+/* ── Victory screen ── */
+#victory-screen{position:fixed;inset:0;z-index:200;display:none;flex-direction:column;
+  align-items:center;justify-content:center;background:rgba(5,15,30,0.0);backdrop-filter:blur(0px);
+  transition:background 1.5s, backdrop-filter 1.5s;}
+#victory-screen.active{background:rgba(5,15,30,0.85);backdrop-filter:blur(8px);}
+#victory-content{opacity:0;transform:scale(0.5) translateY(40px);transition:opacity 1s 0.8s, transform 1s 0.8s;text-align:center;}
+#victory-screen.active #victory-content{opacity:1;transform:scale(1) translateY(0);}
+#victory-content h1{font-size:52px;color:#ffe066;margin-bottom:4px;
+  text-shadow:0 0 40px rgba(255,200,50,0.6),0 0 80px rgba(255,160,30,0.3),0 4px 20px rgba(0,0,0,0.5);}
+#victory-content .victory-sub{font-size:20px;color:#f0e8c0;margin-bottom:6px;}
+#victory-content .victory-stats{font-size:14px;color:#c0d8b0;margin-bottom:28px;line-height:1.8;}
+#victory-content .victory-rank{font-size:28px;color:#88eeff;margin-bottom:24px;
+  text-shadow:0 0 20px rgba(100,200,255,0.4);}
+#victory-btns{display:flex;gap:14px;justify-content:center;}
+#victory-btns button{font-family:inherit;font-size:14px;padding:12px 32px;border-radius:30px;
+  cursor:pointer;letter-spacing:1px;transition:all 0.3s;font-weight:700;}
+
+/* ── Goal progress bar ── */
+#goal-bar-container{background:rgba(20,40,10,0.55);backdrop-filter:blur(8px);padding:4px 10px 4px 10px;
+  border-radius:20px;border:1.5px solid rgba(180,220,140,0.3);display:flex;align-items:center;gap:8px;min-width:140px;}
+#goal-label{color:#c0d8a0;font-size:10px;font-weight:700;white-space:nowrap;}
+#goal-bar-bg{flex:1;height:8px;background:rgba(0,0,0,0.3);border-radius:4px;overflow:hidden;position:relative;}
+#goal-bar-fill{height:100%;width:0%;border-radius:4px;transition:width 0.4s,background 0.3s;
+  background:linear-gradient(90deg,#50a040,#80d050);}
+#goal-bar-fill.hot{background:linear-gradient(90deg,#d08030,#f0c040);}
+#goal-bar-fill.critical{background:linear-gradient(90deg,#d04040,#f06060);animation:pulse-bar 0.6s infinite alternate;}
+@keyframes pulse-bar{0%{opacity:0.8;}100%{opacity:1;}}
+#goal-percent{color:#ffe066;font-size:10px;font-weight:700;min-width:28px;text-align:right;}
+
+/* ── Score penalty flash ── */
+#penalty-display{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:55;
+  font-size:36px;font-weight:700;color:#ff4444;pointer-events:none;opacity:0;
+  text-shadow:0 0 20px rgba(255,50,50,0.6),0 4px 15px rgba(0,0,0,0.5);
+  transition:opacity 0.3s,transform 0.5s;}
+#penalty-display.active{opacity:1;transform:translate(-50%,-70%);}
+
+/* ── Victory sparkles ── */
+.v-sparkle{position:fixed;pointer-events:none;z-index:201;border-radius:50%;
+  animation:v-sparkle-fly 2s ease-out forwards;}
+@keyframes v-sparkle-fly{
+  0%{opacity:1;transform:translate(0,0) scale(1) rotate(0deg);}
+  100%{opacity:0;transform:translate(var(--sx),var(--sy)) scale(0) rotate(360deg);}
+}
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <h1>🐱 ネコの冒険<br>～フィッシュラン～</h1>
+  <p>🏆 2000点を目指せ！森と山をかけめぐれ！</p>
+
+  <div id="cat-picker">
+    <span id="cat-picker-label">🎨 あなたはどのネコ？</span>
+    <div id="color-grid"></div>
+    <div id="picker-hint">← → で選んで　A / SPACE で決定</div>
+  </div>
+
+  <button id="start-btn" onclick="startGame()">冒険スタート！</button>
+  <div id="controls-hint">
+    🏆 <span style="color:#ffe066;">2000点</span>取れば勝利！　制限時間なし！<br>
+    🐟 魚に近づくと自動で獲得（小10点・大30点）<br>
+    👾 敵の<span style="color:#ffe066;">上からジャンプで踏む</span>と50点！横から当たると<span style="color:#ff8888;">-100点</span><br>
+    ❤️ 体力は5回分。敵に横から当たると1つ減る。0回で終了<br><br>
+    ⌨️ <span style="color:#ffe066;">移動</span> W/↑↓←→　<span style="color:#ffe066;">ジャンプ</span> SPACE　<span style="color:#ffe066;">ダッシュ</span> SHIFT<br>
+    🎮 スティック/十字キー移動　Aジャンプ　Bダッシュ　＋開始
+  </div>
+</div>
+
+<div id="game-over">
+  <h2>ゲームオーバー</h2>
+  <div class="final-score" id="final-score">スコア: 0</div>
+  <div style="display:flex;gap:14px;">
+    <button id="restart-btn" onclick="restartGame()">もう一度！</button>
+    <button id="restart-btn" onclick="quitToTitle()" style="background:rgba(120,60,50,0.7);border-color:rgba(255,150,120,0.4);">タイトルへ</button>
+  </div>
+</div>
+
+<div id="damage-flash"></div>
+
+<!-- Milestone celebration -->
+<div id="milestone-flash"><div class="glow"></div><div class="ring"></div></div>
+<div id="milestone-text"></div>
+<div id="milestone-sub"></div>
+
+<!-- Help panel -->
+<div id="help-panel">
+  <h3>🎮 操作方法</h3>
+  <div class="section-title">⌨️ キーボード</div>
+  <div class="keys">
+    <kbd>W</kbd> / <kbd>↑</kbd> 前進　　<kbd>S</kbd> / <kbd>↓</kbd> 後退<br>
+    <kbd>A</kbd> / <kbd>←</kbd> 左　　<kbd>D</kbd> / <kbd>→</kbd> 右<br>
+    <kbd>SPACE</kbd> ジャンプ（敵を踏みつけ！）<br>
+    <kbd>SHIFT</kbd> ダッシュ
+  </div>
+  <div class="section-title">🕹️ コントローラー</div>
+  <div class="keys">
+    左スティック / 十字キー：移動<br>
+    Aボタン / Yボタン：ジャンプ<br>
+    Bボタン / R / ZR：ダッシュ<br>
+    ＋ / −：開始 / メニュー
+  </div>
+  <div class="section-title">🐟 ルール</div>
+  <div class="keys">
+    🏆 2000点で勝利！ゴールバーを満タンにしろ！<br>
+    🐟小 = 10点　🐟大 = 30点　👾敵踏み = 50点<br>
+    ⚠️ 敵に当たると <span style="color:#ff8888;">-100点</span> ＋ ライフ減少<br>
+    500点ごとにボーナスイベント＆敵の増援が来る！<br>
+    ❤️ ライフ0でゲームオーバー
+  </div>
+  <button class="hud-btn" id="help-close" onclick="toggleHelp()">閉じる</button>
+</div>
+
+<!-- Quit confirm -->
+<div id="quit-confirm">
+  <div class="quit-box">
+    <h3>🐱 冒険を終了しますか？</h3>
+    <div class="quit-score" id="quit-score">スコア: 0</div>
+    <div class="quit-btns">
+      <button class="hud-btn" onclick="confirmQuit()" style="padding:10px 24px;font-size:14px;background:rgba(160,60,50,0.7);border-color:rgba(255,120,100,0.4);">終了する</button>
+      <button class="hud-btn" onclick="cancelQuit()" style="padding:10px 24px;font-size:14px;">続ける</button>
+    </div>
+  </div>
+</div>
+
+<!-- Victory screen -->
+<div id="victory-screen">
+  <div id="victory-content">
+    <h1>🏆 勝利！</h1>
+    <div class="victory-sub">伝説のネコ漁師、ここに誕生！</div>
+    <div class="victory-rank" id="victory-rank"></div>
+    <div class="victory-stats" id="victory-stats"></div>
+    <div id="victory-btns">
+      <button onclick="restartGame()" style="background:rgba(80,140,50,0.7);color:#f8f0d0;border:2px solid rgba(240,230,180,0.5);">もう一度挑戦！</button>
+      <button onclick="quitToTitle()" style="background:rgba(60,80,120,0.7);color:#d0e0f0;border:2px solid rgba(150,180,220,0.4);">タイトルへ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Score penalty display -->
+<div id="penalty-display"></div>
+
+<div id="hud">
+  <div id="hud-left">
+    <div class="hud-item" id="score-display">🐟 0</div>
+    <div class="hud-item" id="lives-display">❤️ 5</div>
+    <div class="hud-item" id="combo-display">COMBO x1</div>
+    <div class="hud-item" id="goal-bar-container">
+      <span id="goal-label">🏆 目標</span>
+      <div id="goal-bar-bg"><div id="goal-bar-fill"></div></div>
+      <span id="goal-percent">0%</span>
+    </div>
+  </div>
+  <div id="hud-right">
+    <button class="hud-btn" onclick="toggleHelp()">❓ 操作</button>
+    <button class="hud-btn" onclick="restartGame()">🔄 やり直し</button>
+    <button class="hud-btn" onclick="showQuit()">🚪 終了</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════
+//  SETUP
+// ═══════════════════════════════════════
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x6a9a58, 0.006);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 500);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+// Sky
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  uniforms: {
+    uTop: { value: new THREE.Color(0x5090c0) },
+    uBot: { value: new THREE.Color(0xb0d8a0) },
+  },
+  vertexShader: `varying vec3 vW; void main(){ vW=(modelMatrix*vec4(position,1.0)).xyz; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader: `uniform vec3 uTop,uBot; varying vec3 vW;
+    void main(){ float h=clamp(normalize(vW).y,0.0,1.0); gl_FragColor=vec4(mix(uBot,uTop,h),1.0); }`
+});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(200,16,12), skyMat));
+
+// Lights
+const amb = new THREE.AmbientLight(0x88aa77, 0.6);
+scene.add(amb);
+const sun = new THREE.DirectionalLight(0xfff0c0, 0.9);
+sun.position.set(40, 60, 30);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-80; sun.shadow.camera.right=80;
+sun.shadow.camera.top=80; sun.shadow.camera.bottom=-80;
+scene.add(sun);
+const hemi = new THREE.HemisphereLight(0x88bbaa, 0x556633, 0.4);
+scene.add(hemi);
+const camFill = new THREE.PointLight(0xfff8e0, 0.2, 40);
+scene.add(camFill);
+
+// ═══════════════════════════════════════
+//  MATERIALS (Ghibli palette)
+// ═══════════════════════════════════════
+const M = {
+  grass: new THREE.MeshStandardMaterial({color:0x5a9848, roughness:0.85}),
+  grassDark: new THREE.MeshStandardMaterial({color:0x3d7030, roughness:0.85}),
+  dirt: new THREE.MeshStandardMaterial({color:0x8a7050, roughness:0.9}),
+  rock: new THREE.MeshStandardMaterial({color:0x778888, roughness:0.7}),
+  rockDark: new THREE.MeshStandardMaterial({color:0x556666, roughness:0.75}),
+  trunk: new THREE.MeshStandardMaterial({color:0x6a5035, roughness:0.85}),
+  leaf: new THREE.MeshStandardMaterial({color:0x4a9040, roughness:0.7}),
+  leafLight: new THREE.MeshStandardMaterial({color:0x70b858, roughness:0.65}),
+  leafDark: new THREE.MeshStandardMaterial({color:0x2d6828, roughness:0.75}),
+  mushCap: new THREE.MeshStandardMaterial({color:0xd04030, roughness:0.6}),
+  mushCapB: new THREE.MeshStandardMaterial({color:0xd0a040, roughness:0.6}),
+  mushStem: new THREE.MeshStandardMaterial({color:0xf0e8d0, roughness:0.7}),
+  mushSpot: new THREE.MeshStandardMaterial({color:0xf8f0e0, roughness:0.6}),
+  coin: new THREE.MeshStandardMaterial({color:0xf0d040, emissive:0xf0c020, emissiveIntensity:0.4, metalness:0.6, roughness:0.3}),
+  enemy: new THREE.MeshStandardMaterial({color:0x5540a0, roughness:0.5}),
+  enemyEye: new THREE.MeshStandardMaterial({color:0xffffff}),
+  enemyPupil: new THREE.MeshStandardMaterial({color:0x201020}),
+  flower1: new THREE.MeshStandardMaterial({color:0xf0a0b0, roughness:0.6}),
+  flower2: new THREE.MeshStandardMaterial({color:0xd0b0f0, roughness:0.6}),
+  flower3: new THREE.MeshStandardMaterial({color:0xf0e080, roughness:0.6}),
+  water: new THREE.MeshStandardMaterial({color:0x5090b0, roughness:0.1, metalness:0.2, transparent:true, opacity:0.6}),
+  snow: new THREE.MeshStandardMaterial({color:0xe8f0f0, roughness:0.5}),
+  catBody: new THREE.MeshStandardMaterial({color:0xf0c870, roughness:0.7}),
+  catWhite: new THREE.MeshStandardMaterial({color:0xf8f0e8, roughness:0.7}),
+  catPink: new THREE.MeshStandardMaterial({color:0xe8889a, roughness:0.6}),
+  catEye: new THREE.MeshStandardMaterial({color:0x202020}),
+  catNose: new THREE.MeshStandardMaterial({color:0xe07888}),
+  bell: new THREE.MeshStandardMaterial({color:0xf0d040, emissive:0xf0d040, emissiveIntensity:0.2, metalness:0.5}),
+};
+
+// ═══════════════════════════════════════
+//  WORLD GENERATION
+// ═══════════════════════════════════════
+const WORLD = 100; // world extends -WORLD/2 to WORLD/2
+
+// Heightmap for mountain zone
+function getHeight(x, z) {
+  // Mountain in the far positive quadrant
+  const mx = 30, mz = 30;
+  const distM = Math.sqrt((x-mx)**2 + (z-mz)**2);
+  let h = Math.max(0, 18 - distM * 0.5);
+  // Rolling hills
+  h += Math.sin(x*0.08)*Math.cos(z*0.06)*2.5;
+  h += Math.sin(x*0.15+1)*Math.cos(z*0.12+2)*1.2;
+  // Flatten near origin (starting area)
+  const distO = Math.sqrt(x*x+z*z);
+  if(distO < 15) h *= (distO/15);
+  return Math.max(0, h);
+}
+
+// Terrain mesh
+const terrainRes = 80;
+const terrainGeo = new THREE.PlaneGeometry(WORLD, WORLD, terrainRes, terrainRes);
+terrainGeo.rotateX(-Math.PI/2);
+const posArr = terrainGeo.attributes.position.array;
+for(let i=0; i<posArr.length; i+=3){
+  posArr[i+1] = getHeight(posArr[i], posArr[i+2]);
+}
+terrainGeo.computeVertexNormals();
+
+// Vertex colors for terrain
+const colors = new Float32Array(posArr.length);
+for(let i=0; i<posArr.length; i+=3){
+  const y = posArr[i+1];
+  let r,g,b;
+  if(y > 14) { r=0.9;g=0.94;b=0.94; } // snow
+  else if(y > 10) { r=0.5;g=0.55;b=0.55; } // rock
+  else if(y > 5) { r=0.35;g=0.52;b=0.28; } // dark grass
+  else { r=0.35;g=0.6;b=0.28; } // grass
+  colors[i]=r; colors[i+1]=g; colors[i+2]=b;
+}
+terrainGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+const terrainMat = new THREE.MeshStandardMaterial({ vertexColors:true, roughness:0.85 });
+const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+terrain.receiveShadow = true;
+scene.add(terrain);
+
+// ── Trees ──
+const trees = [];
+function createTree(x, z, type) {
+  const g = new THREE.Group();
+  const y = getHeight(x,z);
+  if(y > 12) return; // no trees on high mountain
+
+  const h = 2.5 + Math.random()*3;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.2,h,6), M.trunk);
+  trunk.position.y = h/2; trunk.castShadow=true;
+  g.add(trunk);
+
+  if(type==='pine'){
+    for(let i=0;i<4;i++){
+      const r=1.5-i*0.35;
+      const c = new THREE.Mesh(new THREE.ConeGeometry(r,2,7), i%2===0?M.leaf:M.leafDark);
+      c.position.y = h+i*1.3; c.castShadow=true;
+      g.add(c);
+    }
+  } else {
+    const leafMats = [M.leaf, M.leafLight, M.leafDark];
+    for(let i=0;i<3;i++){
+      const r = 1.2+Math.random()*0.6;
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r,7,5), leafMats[i%3]);
+      s.position.set((Math.random()-0.5)*1.2, h+0.8+Math.random()*0.8, (Math.random()-0.5)*1.2);
+      s.scale.y=0.7; s.castShadow=true;
+      g.add(s);
+    }
+  }
+  g.position.set(x, y, z);
+  scene.add(g);
+  trees.push({x, z, r: 0.8});
+}
+
+// Scatter forest trees
+for(let i=0; i<200; i++){
+  const x = (Math.random()-0.5)*WORLD*0.9;
+  const z = (Math.random()-0.5)*WORLD*0.9;
+  const h = getHeight(x,z);
+  if(h > 12 || (Math.abs(x)<4 && Math.abs(z)<4)) continue;
+  createTree(x, z, Math.random()>0.4?'pine':'round');
+}
+
+// ── Mushrooms (decorative) ──
+function createMushroom(x, z, scale) {
+  const g = new THREE.Group();
+  const y = getHeight(x,z);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08*scale,0.12*scale,0.4*scale,6), M.mushStem);
+  stem.position.y = 0.2*scale;
+  g.add(stem);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.25*scale,8,6), Math.random()>0.5?M.mushCap:M.mushCapB);
+  cap.position.y = 0.45*scale; cap.scale.y = 0.55;
+  g.add(cap);
+  // Spots
+  for(let i=0;i<3;i++){
+    const a=Math.random()*Math.PI*2;
+    const sp = new THREE.Mesh(new THREE.SphereGeometry(0.04*scale,4,4), M.mushSpot);
+    sp.position.set(Math.cos(a)*0.15*scale, 0.5*scale, Math.sin(a)*0.15*scale);
+    g.add(sp);
+  }
+  g.position.set(x, y, z);
+  scene.add(g);
+}
+for(let i=0;i<60;i++){
+  const x=(Math.random()-0.5)*80, z=(Math.random()-0.5)*80;
+  if(getHeight(x,z)<10) createMushroom(x, z, 0.8+Math.random()*1.5);
+}
+
+// ── Flowers ──
+const flowerMats = [M.flower1, M.flower2, M.flower3];
+for(let i=0;i<120;i++){
+  const x=(Math.random()-0.5)*70, z=(Math.random()-0.5)*70;
+  const y=getHeight(x,z);
+  if(y>8) continue;
+  const fm = flowerMats[Math.floor(Math.random()*3)];
+  const f = new THREE.Mesh(new THREE.SphereGeometry(0.08+Math.random()*0.06,5,5), fm);
+  f.position.set(x, y+0.15, z);
+  scene.add(f);
+  const st = new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.15,3), M.leaf);
+  st.position.set(x, y+0.07, z);
+  scene.add(st);
+}
+
+// ── Rocks ──
+for(let i=0;i<40;i++){
+  const x=(Math.random()-0.5)*WORLD*0.8, z=(Math.random()-0.5)*WORLD*0.8;
+  const y=getHeight(x,z);
+  const r=0.3+Math.random()*0.8;
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r,0), Math.random()>0.5?M.rock:M.rockDark);
+  rock.position.set(x, y+r*0.4, z);
+  rock.rotation.set(Math.random(),Math.random(),Math.random());
+  rock.scale.y = 0.5+Math.random()*0.5;
+  rock.castShadow=true;
+  scene.add(rock);
+}
+
+// ── Small stream / pond ──
+const pond = new THREE.Mesh(new THREE.CircleGeometry(5,16), M.water);
+pond.rotation.x=-Math.PI/2; pond.position.set(-15, 0.15, 10);
+scene.add(pond);
+
+// ═══════════════════════════════════════
+//  FISH (カツオ風 — 大・小)
+// ═══════════════════════════════════════
+const coins = [];
+
+const fishMats = {
+  bodyDark: new THREE.MeshStandardMaterial({color:0x1a3060, roughness:0.4, metalness:0.3}),
+  bodyMid:  new THREE.MeshStandardMaterial({color:0x3858a0, roughness:0.35, metalness:0.3}),
+  belly:    new THREE.MeshStandardMaterial({color:0xd0d8e8, roughness:0.3, metalness:0.2}),
+  stripe:   new THREE.MeshStandardMaterial({color:0x182848, roughness:0.5}),
+  fin:      new THREE.MeshStandardMaterial({color:0x304878, roughness:0.4, metalness:0.2, side: THREE.DoubleSide}),
+  finYellow:new THREE.MeshStandardMaterial({color:0xc0a830, roughness:0.4, metalness:0.2, side: THREE.DoubleSide}),
+  eye:      new THREE.MeshStandardMaterial({color:0xf8f8f8, roughness:0.3}),
+  pupil:    new THREE.MeshStandardMaterial({color:0x101018, roughness:0.3}),
+  tail:     new THREE.MeshStandardMaterial({color:0x2a4878, roughness:0.4, metalness:0.2, side: THREE.DoubleSide}),
+};
+
+function createFishMesh(size) {
+  const s = size === 'big' ? 1.0 : 0.55;
+  const g = new THREE.Group();
+
+  // ── Main body (torpedo shape) ──
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.3*s, 12, 10), fishMats.bodyMid);
+  body.scale.set(1, 0.7, 2.8);
+  g.add(body);
+
+  // ── Dark back (upper half) ──
+  const back = new THREE.Mesh(new THREE.SphereGeometry(0.28*s, 10, 6, 0, Math.PI*2, 0, Math.PI*0.45), fishMats.bodyDark);
+  back.scale.set(1, 0.72, 2.8);
+  back.position.y = 0.01*s;
+  g.add(back);
+
+  // ── White belly (lower half) ──
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.27*s, 10, 6, 0, Math.PI*2, Math.PI*0.6, Math.PI*0.4), fishMats.belly);
+  belly.scale.set(1, 0.72, 2.8);
+  belly.position.y = -0.01*s;
+  g.add(belly);
+
+  // ── Horizontal stripes (katsuo characteristic) ──
+  for(let i=0; i<4; i++){
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.02*s, 0.012*s, 0.5*s), fishMats.stripe);
+    stripe.position.set(0.15*s, -0.06*s - i*0.035*s, -0.1*s + i*0.06*s);
+    g.add(stripe);
+    const stripe2 = stripe.clone();
+    stripe2.position.x = -0.15*s;
+    g.add(stripe2);
+  }
+
+  // ── Head ──
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22*s, 8, 8), fishMats.bodyMid);
+  head.scale.set(0.9, 0.75, 1);
+  head.position.z = 0.7*s;
+  g.add(head);
+
+  // ── Eyes ──
+  [-1, 1].forEach(side => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05*s, 8, 8), fishMats.eye);
+    eye.position.set(side*0.18*s, 0.03*s, 0.72*s);
+    g.add(eye);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.028*s, 6, 6), fishMats.pupil);
+    pupil.position.set(side*0.21*s, 0.03*s, 0.75*s);
+    g.add(pupil);
+  });
+
+  // ── Tail fin (forked crescent) ──
+  const tailShape = new THREE.Shape();
+  tailShape.moveTo(0, 0);
+  tailShape.quadraticCurveTo(0.12*s, 0.22*s, 0.04*s, 0.38*s);
+  tailShape.lineTo(0, 0.15*s);
+  tailShape.quadraticCurveTo(-0.12*s, -0.05*s, -0.04*s, -0.2*s);
+  tailShape.lineTo(0, 0);
+  const tailFin = new THREE.Mesh(new THREE.ShapeGeometry(tailShape), fishMats.tail);
+  tailFin.position.set(0, 0, -0.85*s);
+  g.add(tailFin);
+  const tailFin2 = tailFin.clone();
+  tailFin2.rotation.y = Math.PI;
+  tailFin2.position.z = -0.86*s;
+  g.add(tailFin2);
+
+  // ── Dorsal fin (top) ──
+  const dorsalShape = new THREE.Shape();
+  dorsalShape.moveTo(0, 0);
+  dorsalShape.quadraticCurveTo(0.15*s, 0.2*s, 0.35*s, 0.03*s);
+  dorsalShape.lineTo(0.35*s, 0);
+  dorsalShape.lineTo(0, 0);
+  const dorsal = new THREE.Mesh(new THREE.ShapeGeometry(dorsalShape), fishMats.fin);
+  dorsal.position.set(0, 0.2*s, 0.05*s);
+  dorsal.rotation.y = Math.PI/2;
+  g.add(dorsal);
+
+  // ── Second dorsal fin (smaller) ──
+  const d2Shape = new THREE.Shape();
+  d2Shape.moveTo(0, 0);
+  d2Shape.quadraticCurveTo(0.06*s, 0.1*s, 0.14*s, 0.01*s);
+  d2Shape.lineTo(0.14*s, 0);
+  const dorsal2 = new THREE.Mesh(new THREE.ShapeGeometry(d2Shape), fishMats.fin);
+  dorsal2.position.set(0, 0.18*s, -0.4*s);
+  dorsal2.rotation.y = Math.PI/2;
+  g.add(dorsal2);
+
+  // ── Pectoral fins (sides, yellowish) ──
+  [-1, 1].forEach(side => {
+    const pShape = new THREE.Shape();
+    pShape.moveTo(0, 0);
+    pShape.quadraticCurveTo(0.12*s, -0.08*s, 0.22*s, -0.02*s);
+    pShape.lineTo(0.05*s, 0.02*s);
+    const pFin = new THREE.Mesh(new THREE.ShapeGeometry(pShape), fishMats.finYellow);
+    pFin.position.set(side*0.2*s, -0.08*s, 0.45*s);
+    pFin.rotation.y = side * 0.4;
+    pFin.rotation.z = side * -0.6;
+    g.add(pFin);
+  });
+
+  // ── Anal fin ──
+  const aShape = new THREE.Shape();
+  aShape.moveTo(0, 0);
+  aShape.quadraticCurveTo(0.06*s, -0.08*s, 0.14*s, -0.01*s);
+  aShape.lineTo(0.14*s, 0);
+  const analFin = new THREE.Mesh(new THREE.ShapeGeometry(aShape), fishMats.fin);
+  analFin.position.set(0, -0.17*s, -0.35*s);
+  analFin.rotation.y = Math.PI/2;
+  analFin.rotation.x = Math.PI;
+  g.add(analFin);
+
+  // ── Finlets near tail (katsuo signature!) ──
+  for(let i=0; i<3; i++){
+    const fl = new THREE.Mesh(new THREE.BoxGeometry(0.01*s, 0.04*s, 0.03*s), fishMats.finYellow);
+    fl.position.set(0, 0.15*s - i*0.02*s, -0.5*s - i*0.1*s);
+    g.add(fl);
+    const fl2 = fl.clone();
+    fl2.position.y = -0.13*s + i*0.02*s;
+    g.add(fl2);
+  }
+
+  // Fish faces along Z, rotate to swim sideways
+  g.rotation.y = Math.PI/2;
+
+  return g;
+}
+
+function spawnCoin(x, z) {
+  const y = getHeight(x,z) + 1.2;
+  const isBig = Math.random() < 0.25;  // 25% big fish
+  const size = isBig ? 'big' : 'small';
+  const mesh = createFishMesh(size);
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+  const points = isBig ? 30 : 10;
+  coins.push({mesh, x, z, baseY:y, alive:true, size, points});
+}
+
+function scatterCoins(){
+  // Path of coins through forest
+  for(let i=0;i<80;i++){
+    const a = i*0.4 + Math.random()*0.3;
+    const r = 8 + i*0.4;
+    const x = Math.cos(a)*r*0.6;
+    const z = Math.sin(a)*r*0.5;
+    if(getHeight(x,z)<13) spawnCoin(x, z);
+  }
+  // Mountain coins (higher value feeling)
+  for(let i=0;i<25;i++){
+    const x = 20+Math.random()*20;
+    const z = 20+Math.random()*20;
+    if(getHeight(x,z)>3) spawnCoin(x,z);
+  }
+}
+
+// ═══════════════════════════════════════
+//  ENEMIES (forest spirits — round purple blobs)
+// ═══════════════════════════════════════
+const enemies = [];
+
+function createEnemy(x, z) {
+  const g = new THREE.Group();
+  const y = getHeight(x,z);
+  // Body — round blob
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.5,10,8), M.enemy);
+  body.position.y = 0.5; body.scale.y = 0.8;
+  body.castShadow = true;
+  g.add(body);
+  // Eyes
+  [-0.18, 0.18].forEach(sx => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12,6,6), M.enemyEye);
+    eye.position.set(sx, 0.65, 0.38);
+    g.add(eye);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.06,5,5), M.enemyPupil);
+    pupil.position.set(sx, 0.65, 0.48);
+    g.add(pupil);
+  });
+  // Little feet
+  [-0.2,0.2].forEach(sx=>{
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.12,5,5), M.enemy);
+    foot.position.set(sx, 0.1, 0.05);
+    foot.scale.y=0.6;
+    g.add(foot);
+  });
+
+  g.position.set(x, y, z);
+  scene.add(g);
+
+  // Patrol: walk back and forth
+  const dir = Math.random()*Math.PI*2;
+  const range = 3+Math.random()*5;
+  enemies.push({
+    mesh: g, x, z, baseX:x, baseZ:z,
+    dir, range, t: Math.random()*Math.PI*2,
+    speed: 1.5+Math.random()*1.5,
+    alive: true, squashTime: 0
+  });
+}
+
+function scatterEnemies(){
+  for(let i=0;i<20;i++){
+    const x=(Math.random()-0.5)*70;
+    const z=(Math.random()-0.5)*70;
+    const h=getHeight(x,z);
+    if(h>10 || (Math.abs(x)<8 && Math.abs(z)<8)) continue;
+    createEnemy(x,z);
+  }
+}
+
+// ═══════════════════════════════════════
+//  CAT (same as before but cleaner)
+// ═══════════════════════════════════════
+const catGroup = new THREE.Group();
+
+// Body
+const catBody = new THREE.Mesh(new THREE.SphereGeometry(0.45,10,8), M.catBody);
+catBody.scale.set(1,0.85,1.2); catBody.position.y=0.55;
+catGroup.add(catBody);
+// Head
+const catHead = new THREE.Mesh(new THREE.SphereGeometry(0.38,10,8), M.catBody);
+catHead.position.set(0,0.95,0.35);
+catGroup.add(catHead);
+// Ears
+[-0.2,0.2].forEach(sx=>{
+  const ear=new THREE.Mesh(new THREE.ConeGeometry(0.12,0.22,4),M.catBody);
+  ear.position.set(sx,1.28,0.3); ear.rotation.x=-0.15;
+  catGroup.add(ear);
+  const ein=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.14,4),M.catPink);
+  ein.position.set(sx,1.26,0.32); ein.rotation.x=-0.15;
+  catGroup.add(ein);
+});
+// Eyes
+[-0.12,0.12].forEach(sx=>{
+  const e=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,8),M.catEye);
+  e.position.set(sx,1.0,0.65);
+  catGroup.add(e);
+  const h=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,6),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:0.5}));
+  h.position.set(sx+0.02,1.03,0.7);
+  catGroup.add(h);
+});
+// Nose
+const noseM = new THREE.Mesh(new THREE.SphereGeometry(0.035,6,6),M.catNose);
+noseM.position.set(0,0.92,0.72);
+catGroup.add(noseM);
+// Tail
+const tailC=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0.5,-0.5),new THREE.Vector3(0.1,0.8,-0.9),new THREE.Vector3(0,1.1,-1.0),new THREE.Vector3(-0.1,1.3,-0.85)]);
+catGroup.add(new THREE.Mesh(new THREE.TubeGeometry(tailC,12,0.06,6,false),M.catBody));
+// Feet
+[[-0.2,0.12,0.15],[0.2,0.12,0.15],[-0.2,0.12,-0.25],[0.2,0.12,-0.25]].forEach(([fx,fy,fz])=>{
+  const f=new THREE.Mesh(new THREE.SphereGeometry(0.1,6,6),M.catWhite);
+  f.position.set(fx,fy,fz); f.scale.y=0.6;
+  catGroup.add(f);
+});
+// Bell
+const collar=new THREE.Mesh(new THREE.TorusGeometry(0.28,0.03,6,12),M.catPink);
+collar.position.set(0,0.72,0.25); collar.rotation.x=Math.PI/2+0.3;
+catGroup.add(collar);
+const bellM=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,8),M.bell);
+bellM.position.set(0,0.62,0.45);
+catGroup.add(bellM);
+
+catGroup.position.set(0,0,0);
+scene.add(catGroup);
+
+// ═══════════════════════════════════════
+//  CAT COLOR PICKER
+// ═══════════════════════════════════════
+const catColors = [
+  { name:'茶トラ',         hex:0xf0c870, foot:0xf8f0e8, nose:0xe07888, pink:0xe8889a, ear:0xe8889a },
+  { name:'黒',             hex:0x252025, foot:0x353035, nose:0x504048, pink:0x504048, ear:0x403840 },
+  { name:'ディープグリーン', hex:0x2a6838, foot:0x5a9868, nose:0x406030, pink:0x507040, ear:0x507040 },
+  { name:'オレンジ',       hex:0xe88830, foot:0xf8e0c0, nose:0xd06868, pink:0xd87880, ear:0xd87880 },
+  { name:'茶色',           hex:0x8a5a30, foot:0xd0b890, nose:0x905050, pink:0xa06868, ear:0xa06868 },
+  { name:'ベージュ',       hex:0xd8c8a0, foot:0xf0ece0, nose:0xd09898, pink:0xd8a0a0, ear:0xd8a0a0 },
+  { name:'ブルーグレー',   hex:0x788898, foot:0xc8d0d8, nose:0x8878a0, pink:0x9888a8, ear:0x9888a8 },
+  { name:'ピンク',         hex:0xf08890, foot:0xfce0e4, nose:0xd06878, pink:0xe07888, ear:0xe07888 },
+  { name:'水色',           hex:0x78c0d8, foot:0xd0eef8, nose:0x7898b0, pink:0x88a0b8, ear:0x88a0b8 },
+  { name:'青',             hex:0x4070b0, foot:0xa0b8d8, nose:0x506898, pink:0x607098, ear:0x607098 },
+  { name:'紫',             hex:0x5540a0, foot:0xb0a0d0, nose:0x705898, pink:0x806898, ear:0x806898 },
+  { name:'レッド',         hex:0xc83030, foot:0xe0a0a0, nose:0x902828, pink:0xa03838, ear:0xa03838 },
+];
+
+let selectedColorIdx = 0;
+let colorConfirmed = false;
+
+// Build palette UI
+const colorGrid = document.getElementById('color-grid');
+catColors.forEach((c, i) => {
+  const swatch = document.createElement('div');
+  swatch.className = 'color-swatch' + (i===0?' selected':'');
+  swatch.style.background = '#' + c.hex.toString(16).padStart(6,'0');
+  swatch.addEventListener('click', () => {
+    if(colorConfirmed) {
+      // Clicking a different color undoes confirmation
+      unconfirmColor();
+    }
+    selectCatColor(i);
+  });
+  swatch.addEventListener('dblclick', () => {
+    selectCatColor(i);
+    confirmColor();
+  });
+  colorGrid.appendChild(swatch);
+});
+
+function applyCatColor(c){
+  M.catBody.color.setHex(c.hex);
+  M.catWhite.color.setHex(c.foot);
+  M.catNose.color.setHex(c.nose);
+  M.catPink.color.setHex(c.pink);
+  // Force needsUpdate on all cat meshes
+  catGroup.traverse(child => {
+    if(child.isMesh && child.material){
+      child.material.needsUpdate = true;
+    }
+  });
+}
+
+function selectCatColor(idx){
+  if(colorConfirmed) return; // locked after confirmation
+  selectedColorIdx = idx;
+  const c = catColors[idx];
+
+  // Update UI
+  document.querySelectorAll('.color-swatch').forEach((s,i) => {
+    s.classList.toggle('selected', i===idx);
+    s.classList.remove('confirmed');
+  });
+
+  applyCatColor(c);
+}
+window.selectCatColor = selectCatColor;
+
+function confirmColor(){
+  if(colorConfirmed) return;
+  colorConfirmed = true;
+
+  // Visual feedback
+  const swatches = document.querySelectorAll('.color-swatch');
+  swatches[selectedColorIdx].classList.add('confirmed');
+  document.getElementById('picker-hint').textContent = 'A / SPACE で冒険スタート！';
+
+  // Show start button
+  document.getElementById('start-btn').classList.add('visible');
+}
+window.confirmColor = confirmColor;
+
+function unconfirmColor(){
+  colorConfirmed = false;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('confirmed'));
+  document.getElementById('picker-hint').textContent = '← → で選んで　A / SPACE で決定';
+  document.getElementById('start-btn').classList.remove('visible');
+}
+window.unconfirmColor = unconfirmColor;
+
+// ═══════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════
+const cat = {
+  pos: new THREE.Vector3(0, 0, 0),
+  vel: new THREE.Vector3(0, 0, 0),
+  angle: 0,
+  speed: 0,
+  maxSpeed: 5.5,
+  dashSpeed: 10,
+  accel: 9,
+  decel: 18,
+  turnSpeed: 3.0,
+  jumpVel: 0,
+  onGround: true,
+  gravity: -28,
+  jumpForce: 12,
+  bobPhase: 0,
+};
+
+let score = 0, lives = 5, combo = 0, comboTimer = 0;
+let gameStarted = false, gameOver = false;
+let invincibleTimer = 0;
+
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code]=true;
+  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+  if(e.code==='Escape'){
+    if(helpOpen) toggleHelp();
+    else if(quitOpen) cancelQuit();
+    else if(gameStarted && !gameOver) showQuit();
+    else if(!gameStarted && colorConfirmed) unconfirmColor();
+  }
+  // Title screen keyboard: color selection + 2-step confirm
+  if(!gameStarted && !gameOver){
+    if(!colorConfirmed){
+      if(e.code==='ArrowLeft' || e.code==='KeyA'){
+        selectCatColor((selectedColorIdx - 1 + catColors.length) % catColors.length);
+      }
+      if(e.code==='ArrowRight' || e.code==='KeyD'){
+        selectCatColor((selectedColorIdx + 1) % catColors.length);
+      }
+      if(e.code==='Space' || e.code==='Enter') confirmColor();
+    } else {
+      if(e.code==='Space' || e.code==='Enter') startGame();
+    }
+  }
+});
+window.addEventListener('keyup', e => { keys[e.code]=false; });
+window.addEventListener('blur', ()=>{ for(const k in keys) keys[k]=false; });
+
+// ═══════════════════════════════════════
+//  GAMEPAD SUPPORT
+// ═══════════════════════════════════════
+const gp = { fwd:0, bwd:0, lft:0, rgt:0, jump:false, dash:false, start:false, stickX:0, stickY:0 };
+let gpPrevStart = false;
+let gpPrevJump = false;
+let gpPrevLeft = false;
+let gpPrevRight = false;
+
+function pollGamepad() {
+  let gamepads;
+  try { gamepads = navigator.getGamepads ? navigator.getGamepads() : []; }
+  catch(e) {
+    gp.fwd=0; gp.bwd=0; gp.lft=0; gp.rgt=0;
+    gp.jump=false; gp.dash=false; gp.start=false;
+    gp.stickX=0; gp.stickY=0;
+    return;
+  }
+
+  // Find the right pad — prefer 'standard' mapping or Xbox controller
+  let pad = null;
+  for (let i = 0; i < gamepads.length; i++) {
+    if (!gamepads[i]) continue;
+    const g = gamepads[i];
+    if (g.mapping === 'standard' || g.id.toLowerCase().includes('xbox') || g.id.toLowerCase().includes('xinput')) {
+      pad = g; break;
+    }
+  }
+  // Fallback: any pad with enough buttons
+  if (!pad) {
+    for (let i = 0; i < gamepads.length; i++) {
+      if (gamepads[i] && gamepads[i].buttons.length >= 10) { pad = gamepads[i]; break; }
+    }
+  }
+
+  if (!pad) {
+    gp.fwd=0; gp.bwd=0; gp.lft=0; gp.rgt=0;
+    gp.jump=false; gp.dash=false; gp.start=false;
+    gp.stickX=0; gp.stickY=0;
+    return;
+  }
+
+  // Analog sticks — Axis0(LX), Axis1(LY)
+  const deadzone = 0.15;
+  const lx = Math.abs(pad.axes[0]) > deadzone ? pad.axes[0] : 0;
+  const ly = Math.abs(pad.axes[1]) > deadzone ? pad.axes[1] : 0;
+  gp.stickX = lx;
+  gp.stickY = ly;
+
+  // Stick → directional input (Axis1: negative=up=forward)
+  gp.fwd = ly < -0.2 ? -ly : 0;
+  gp.bwd = ly > 0.2 ? ly : 0;
+  gp.lft = lx < -0.2 ? -lx : 0;
+  gp.rgt = lx > 0.2 ? lx : 0;
+
+  // D-pad: B12=Up, B13=Down, B14=Left, B15=Right
+  const btn = (i) => pad.buttons[i] && pad.buttons[i].pressed;
+  if (btn(12)) gp.fwd = 1;
+  if (btn(13)) gp.bwd = 1;
+  if (btn(14)) gp.lft = 1;
+  if (btn(15)) gp.rgt = 1;
+
+  // 3COINS Switch controller mapping:
+  // B1=A(Jump), B0=B(Dash), B3=X, B2=Y
+  // B5=R, B7=ZR(Dash alt), B4=L, B6=ZL
+  // B9=+(Start), B8=-(Select)
+  const jumpBtn = btn(1) || btn(2);    // A or Y = Jump
+  gp.jump = jumpBtn && !gpPrevJump;    // Edge detect
+  gpPrevJump = jumpBtn;
+
+  gp.dash = btn(0) || btn(5) || btn(7); // B, R, or ZR = Dash
+
+  const startBtn = btn(9) || btn(8);   // + or - = Start
+  gp.start = startBtn && !gpPrevStart;
+  gpPrevStart = startBtn;
+}
+
+// ═══════════════════════════════════════
+//  GAME FLOW
+// ═══════════════════════════════════════
+function startGame(){
+  // Re-apply selected color to ensure it's active in game
+  applyCatColor(catColors[selectedColorIdx]);
+
+  document.getElementById('start-screen').style.opacity='0';
+  setTimeout(()=>{document.getElementById('start-screen').style.display='none';},800);
+  gameStarted=true;
+  scatterCoins();
+  scatterEnemies();
+}
+window.startGame = startGame;
+
+function restartGame(){
+  // Reset
+  score=0; lives=5; combo=0; gameOver=false; invincibleTimer=0;
+  lastMilestone=0; milestoneActive=false; lastEnemyWave=0;
+  victory=false; gameTime=0; fishCollected=0; enemiesDefeated=0;
+  cat.pos.set(0,0,0); cat.vel.set(0,0,0); cat.speed=0; cat.angle=0; cat.jumpVel=0; cat.onGround=true;
+  // Remove old coins/enemies
+  coins.forEach(c=>scene.remove(c.mesh)); coins.length=0;
+  enemies.forEach(e=>scene.remove(e.mesh)); enemies.length=0;
+  scatterCoins();
+  scatterEnemies();
+  document.getElementById('game-over').style.display='none';
+  document.getElementById('quit-confirm').style.display='none';
+  document.getElementById('help-panel').style.display='none';
+  const vs = document.getElementById('victory-screen');
+  vs.classList.remove('active'); vs.style.display='none';
+  // Reset scene effects
+  scene.fog = new THREE.FogExp2(0x6a9a58, 0.006);
+  renderer.toneMappingExposure = 1.1;
+  sun.intensity = 0.9;
+  sun.color.setHex(0xfff0c0);
+  // Re-apply cat color
+  applyCatColor(catColors[selectedColorIdx]);
+  updateHUD();
+}
+window.restartGame = restartGame;
+
+function quitToTitle(){
+  restartGame();
+  gameStarted=false;
+  colorConfirmed=false;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('confirmed'));
+  document.getElementById('picker-hint').textContent = '← → で選んで　A / SPACE で決定';
+  document.getElementById('start-btn').classList.remove('visible');
+  document.getElementById('start-screen').style.display='flex';
+  document.getElementById('start-screen').style.opacity='1';
+}
+window.quitToTitle = quitToTitle;
+
+// ── Help panel ──
+let helpOpen = false;
+function toggleHelp(){
+  helpOpen = !helpOpen;
+  document.getElementById('help-panel').style.display = helpOpen ? 'flex' : 'none';
+}
+window.toggleHelp = toggleHelp;
+
+// ── Quit confirm ──
+let quitOpen = false;
+function showQuit(){
+  if(!gameStarted || gameOver) return;
+  quitOpen = true;
+  document.getElementById('quit-score').textContent = 'スコア: '+score;
+  document.getElementById('quit-confirm').style.display='flex';
+}
+window.showQuit = showQuit;
+function confirmQuit(){
+  quitOpen = false;
+  document.getElementById('quit-confirm').style.display='none';
+  quitToTitle();
+}
+window.confirmQuit = confirmQuit;
+function cancelQuit(){
+  quitOpen = false;
+  document.getElementById('quit-confirm').style.display='none';
+}
+window.cancelQuit = cancelQuit;
+
+// ═══════════════════════════════════════
+//  MILESTONE CELEBRATION (every 500 pts)
+// ═══════════════════════════════════════
+let lastMilestone = 0;
+let milestoneActive = false;
+let milestoneTimer = 0;
+let screenShakeTimer = 0;
+
+const milestoneMessages = [
+  { score:500,  title:'🐟 500点！', fogColor:0x5080c0, sunColor:0x80c0ff, exposure:1.6 },
+  { score:1000, title:'🌟 1000点！', fogColor:0x908040, sunColor:0xffd060, exposure:1.8 },
+  { score:1500, title:'🔥 止められないニャン！', fogColor:0x904830, sunColor:0xff8040, exposure:1.5 },
+  { score:2000, title:'🌸 2000点！', fogColor:0xa06880, sunColor:0xffb0c0, exposure:1.7 },
+  { score:2500, title:'⚡ 2500点！', fogColor:0x405060, sunColor:0xc0d0ff, exposure:1.3 },
+  { score:3000, title:'🌈 3000点！', fogColor:0x609068, sunColor:0xf0f0f0, exposure:2.0 },
+];
+
+function spawnSparkles(){
+  for(let i=0;i<25;i++){
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    s.style.left = (Math.random()*100)+'%';
+    s.style.top = (Math.random()*100)+'%';
+    const angle = Math.random()*Math.PI*2;
+    const dist = 80+Math.random()*200;
+    s.style.setProperty('--sx', Math.cos(angle)*dist+'px');
+    s.style.setProperty('--sy', Math.sin(angle)*dist+'px');
+    s.style.width = (4+Math.random()*10)+'px';
+    s.style.height = s.style.width;
+    s.style.animationDuration = (1+Math.random()*1)+'s';
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(), 2500);
+  }
+}
+
+function triggerMilestone(ms){
+  milestoneActive = true;
+  milestoneTimer = 4.0;
+  screenShakeTimer = 0.6;
+
+  // Text
+  const textEl = document.getElementById('milestone-text');
+  const subEl = document.getElementById('milestone-sub');
+  textEl.textContent = ms.title;
+  subEl.textContent = '';
+  textEl.classList.add('active');
+  document.getElementById('milestone-flash').classList.add('active');
+
+  // Sparkles
+  spawnSparkles();
+  setTimeout(()=>spawnSparkles(), 400);
+  setTimeout(()=>spawnSparkles(), 800);
+
+  // World color shift
+  scene.fog = new THREE.FogExp2(ms.fogColor, 0.008);
+  sun.color.setHex(ms.sunColor);
+  renderer.toneMappingExposure = ms.exposure;
+  sun.intensity = 1.4;
+
+  // Fade out after duration
+  setTimeout(()=>{
+    textEl.classList.remove('active');
+    document.getElementById('milestone-flash').classList.remove('active');
+  }, 3000);
+
+  // Gradually return to normal
+  setTimeout(()=>{
+    milestoneActive = false;
+    scene.fog = new THREE.FogExp2(0x6a9a58, 0.006);
+    sun.color.setHex(0xfff0c0);
+    renderer.toneMappingExposure = 1.1;
+    sun.intensity = 0.9;
+  }, 4500);
+}
+
+function checkMilestone(){
+  const nextMilestone = Math.floor(score / 500) * 500;
+  if(nextMilestone > 0 && nextMilestone > lastMilestone){
+    lastMilestone = nextMilestone;
+    // Find matching message or use a default cycling pattern
+    let ms = milestoneMessages.find(m => m.score === nextMilestone);
+    if(!ms){
+      // Cycle through effects for scores beyond defined milestones
+      const cycle = milestoneMessages[(Math.floor(nextMilestone/500)-1) % milestoneMessages.length];
+      ms = { ...cycle, title:'🎉 '+nextMilestone+'点！' };
+    }
+    triggerMilestone(ms);
+    // Spawn reinforcement enemies!
+    spawnReinforcements(nextMilestone);
+  }
+}
+
+// ═══════════════════════════════════════
+//  ENEMY REINFORCEMENTS (scales with score)
+// ═══════════════════════════════════════
+let lastEnemyWave = 0;
+let enemyWaveInterval = 200; // also spawn a few enemies every 200 pts
+
+function spawnReinforcements(milestoneScore){
+  // Base: 3 enemies at 500, scaling up: +1 per 500
+  const wave = Math.floor(milestoneScore / 500);
+  const count = Math.min(3 + wave, 12); // cap at 12 per wave
+  const speedBonus = Math.min(wave * 0.3, 2.5); // enemies get faster over time
+
+  let spawned = 0;
+  let attempts = 0;
+  while(spawned < count && attempts < 80){
+    attempts++;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 15 + Math.random() * 25; // spawn 15-40 units from cat
+    const x = cat.pos.x + Math.cos(angle) * dist;
+    const z = cat.pos.z + Math.sin(angle) * dist;
+
+    // Stay within world bounds
+    if(Math.abs(x) > WORLD/2 - 3 || Math.abs(z) > WORLD/2 - 3) continue;
+    const h = getHeight(x, z);
+    if(h > 10) continue; // no enemies on mountain peaks
+
+    createEnemy(x, z);
+    // Apply speed bonus to the newly created enemy
+    const newest = enemies[enemies.length - 1];
+    newest.speed += speedBonus;
+    spawned++;
+  }
+}
+
+// Smaller enemy waves between milestones (every 200 pts)
+function checkEnemyWaves(){
+  const waveAt = Math.floor(score / enemyWaveInterval) * enemyWaveInterval;
+  if(waveAt > 0 && waveAt > lastEnemyWave && waveAt % 500 !== 0){
+    lastEnemyWave = waveAt;
+    // Spawn 1-3 enemies as mini-wave
+    const count = 1 + Math.floor(Math.random() * 3);
+    let spawned = 0, attempts = 0;
+    while(spawned < count && attempts < 40){
+      attempts++;
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 18 + Math.random() * 20;
+      const x = cat.pos.x + Math.cos(angle) * dist;
+      const z = cat.pos.z + Math.sin(angle) * dist;
+      if(Math.abs(x) > WORLD/2 - 3 || Math.abs(z) > WORLD/2 - 3) continue;
+      if(getHeight(x, z) > 10) continue;
+      createEnemy(x, z);
+      spawned++;
+    }
+  }
+}
+
+function updateHUD(){
+  document.getElementById('score-display').textContent = '🐟 '+score;
+  document.getElementById('lives-display').textContent = '❤️ '+lives;
+  if(combo>1){
+    document.getElementById('combo-display').textContent = 'COMBO x'+combo;
+    document.getElementById('combo-display').style.opacity = '1';
+  } else {
+    document.getElementById('combo-display').style.opacity = '0';
+  }
+  // Goal bar
+  updateGoalBar();
+  checkMilestone();
+  checkEnemyWaves();
+  // Victory check
+  checkVictory();
+}
+
+// ═══════════════════════════════════════
+//  VICTORY SYSTEM — 2000点で勝利！
+// ═══════════════════════════════════════
+const VICTORY_SCORE = 2000;
+let victory = false;
+let gameTime = 0;
+let fishCollected = 0;
+let enemiesDefeated = 0;
+
+function updateGoalBar(){
+  const pct = Math.min(100, Math.max(0, (score / VICTORY_SCORE) * 100));
+  const fill = document.getElementById('goal-bar-fill');
+  fill.style.width = pct + '%';
+  document.getElementById('goal-percent').textContent = Math.floor(pct) + '%';
+
+  // Color stages
+  fill.classList.remove('hot','critical');
+  if(pct >= 80) fill.classList.add('critical');
+  else if(pct >= 50) fill.classList.add('hot');
+}
+
+function checkVictory(){
+  if(victory) return;
+  if(score >= VICTORY_SCORE){
+    // 3000点到達 = 何があっても勝利！ゲームオーバーも取り消す
+    victory = true;
+    gameOver = false;
+    document.getElementById('game-over').style.display='none';
+    triggerVictory();
+  }
+}
+
+function triggerVictory(){
+  // Calculate rank based on time and lives
+  const minutes = Math.floor(gameTime / 60);
+  const seconds = Math.floor(gameTime % 60);
+  let rank, rankEmoji;
+  if(lives >= 5 && gameTime < 120){
+    rank = 'S — 伝説のネコ漁師'; rankEmoji = '👑';
+  } else if(lives >= 3 && gameTime < 200){
+    rank = 'A — 凄腕ネコ漁師'; rankEmoji = '🌟';
+  } else if(lives >= 1 && gameTime < 360){
+    rank = 'B — 一人前のネコ漁師'; rankEmoji = '⭐';
+  } else {
+    rank = 'C — 見習いネコ漁師'; rankEmoji = '🐱';
+  }
+
+  document.getElementById('victory-rank').textContent = rankEmoji + ' ランク: ' + rank;
+  document.getElementById('victory-stats').innerHTML =
+    '🐟 獲得した魚: ' + fishCollected + '匹<br>' +
+    '👾 倒した敵: ' + enemiesDefeated + '体<br>' +
+    '⏱️ クリアタイム: ' + minutes + '分' + (seconds<10?'0':'') + seconds + '秒<br>' +
+    '❤️ 残りライフ: ' + lives;
+
+  // Show victory screen with delay for drama
+  const vs = document.getElementById('victory-screen');
+  vs.style.display = 'flex';
+  setTimeout(() => vs.classList.add('active'), 50);
+
+  // Massive sparkle celebration
+  for(let wave=0; wave<5; wave++){
+    setTimeout(()=>{
+      for(let i=0;i<30;i++){
+        const s = document.createElement('div');
+        s.className = 'v-sparkle';
+        const size = 6+Math.random()*14;
+        const colors = ['#ffe066','#ff8844','#88eeff','#ff88aa','#88ff88','#ffaa00'];
+        s.style.width = size+'px'; s.style.height = size+'px';
+        s.style.background = colors[Math.floor(Math.random()*colors.length)];
+        s.style.left = (Math.random()*100)+'%';
+        s.style.top = (Math.random()*100)+'%';
+        const angle = Math.random()*Math.PI*2;
+        const dist = 100+Math.random()*300;
+        s.style.setProperty('--sx', Math.cos(angle)*dist+'px');
+        s.style.setProperty('--sy', Math.sin(angle)*dist+'px');
+        s.style.animationDuration = (1.5+Math.random()*1.5)+'s';
+        document.body.appendChild(s);
+        setTimeout(()=>s.remove(), 3500);
+      }
+    }, wave*500);
+  }
+
+  // World turns golden
+  scene.fog = new THREE.FogExp2(0xa09050, 0.004);
+  sun.color.setHex(0xffd860);
+  renderer.toneMappingExposure = 2.0;
+  sun.intensity = 1.5;
+}
+
+function takeDamage(){
+  if(invincibleTimer>0 || victory) return;
+  lives--;
+  invincibleTimer = 2.0;
+
+  // Score penalty! -100 points (but not below 0)
+  const penalty = Math.min(score, 100);
+  score = Math.max(0, score - penalty);
+  combo = 0;
+
+  // Show penalty
+  const penEl = document.getElementById('penalty-display');
+  penEl.textContent = '-' + penalty;
+  penEl.classList.add('active');
+  setTimeout(()=>{ penEl.classList.remove('active'); }, 800);
+
+  document.getElementById('damage-flash').style.opacity = '1';
+  setTimeout(()=>{document.getElementById('damage-flash').style.opacity='0';},150);
+  updateHUD();
+
+  // 3000点以上なら勝利が優先（ライフ0でも勝ち）
+  if(score >= VICTORY_SCORE) return;
+
+  if(lives<=0){
+    gameOver=true;
+    document.getElementById('final-score').textContent = 'スコア: '+score;
+    document.getElementById('game-over').style.display='flex';
+  }
+}
+
+// ═══════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════
+const clock = new THREE.Clock();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const time = clock.elapsedTime;
+
+  if(!gameStarted || gameOver){
+    // Gentle orbit on title/gameover
+    const a = time*0.1;
+    camera.position.set(Math.cos(a)*25, 15, Math.sin(a)*25);
+    camera.lookAt(0,3,0);
+
+    // Gamepad input
+    pollGamepad();
+
+    if(!gameStarted){
+      // ── Color picker navigation with gamepad ──
+      if(!colorConfirmed){
+        // Step 1: Left/Right to cycle colors
+        const gpLeft = gp.lft > 0.5;
+        const gpRight = gp.rgt > 0.5;
+        if(gpLeft && !gpPrevLeft){
+          selectCatColor((selectedColorIdx - 1 + catColors.length) % catColors.length);
+        }
+        if(gpRight && !gpPrevRight){
+          selectCatColor((selectedColorIdx + 1) % catColors.length);
+        }
+        gpPrevLeft = gpLeft;
+        gpPrevRight = gpRight;
+
+        // A button to confirm color
+        if(gp.jump) confirmColor();
+      } else {
+        // Step 2: A button or Start to begin game
+        if(gp.jump || gp.start) startGame();
+        // B button to go back and re-pick
+        if(gp.dash) unconfirmColor();
+      }
+    } else if(gameOver){
+      if(gp.start || gp.jump) restartGame();
+    }
+
+    renderer.render(scene,camera);
+    return;
+  }
+
+  // Victory: slow orbit around cat
+  if(victory){
+    const va = time*0.15;
+    const vr = 10;
+    camera.position.set(cat.pos.x+Math.cos(va)*vr, cat.pos.y+5, cat.pos.z+Math.sin(va)*vr);
+    camera.lookAt(cat.pos.x, cat.pos.y+1, cat.pos.z);
+
+    // Still animate fish swimming
+    coins.forEach(c=>{
+      if(!c.alive) return;
+      c.mesh.rotation.y = Math.PI/2 + Math.sin(time*2.0+c.x*0.5)*0.4;
+      c.mesh.position.y = c.baseY + Math.sin(time*2.5+c.x)*0.25;
+    });
+
+    renderer.render(scene,camera);
+    return;
+  }
+
+  // Pause when help or quit is open
+  if(helpOpen || quitOpen){
+    renderer.render(scene,camera);
+    return;
+  }
+
+  // Game timer
+  gameTime += dt;
+
+  // ── Poll gamepad ──
+  pollGamepad();
+
+  // ── Cat physics (keyboard OR gamepad) ──
+  const kbFwd = keys['KeyW']||keys['ArrowUp'];
+  const kbBwd = keys['KeyS']||keys['ArrowDown'];
+  const kbLft = keys['KeyA']||keys['ArrowLeft'];
+  const kbRgt = keys['KeyD']||keys['ArrowRight'];
+  const kbJump = keys['Space'];
+  const kbDash = keys['ShiftLeft']||keys['ShiftRight'];
+
+  // Combine: keyboard is 0/1, gamepad is 0~1 (analog)
+  const fwd = kbFwd ? 1 : gp.fwd;
+  const bwd = kbBwd ? 1 : gp.bwd;
+  const lft = kbLft ? 1 : gp.lft;
+  const rgt = kbRgt ? 1 : gp.rgt;
+  const jump = kbJump || gp.jump;
+  const dash = kbDash || gp.dash;
+
+  const maxSpd = dash ? cat.dashSpeed : cat.maxSpeed;
+
+  // Analog turning (intensity affects turn speed)
+  if(lft) cat.angle += cat.turnSpeed * lft * dt;
+  if(rgt) cat.angle -= cat.turnSpeed * rgt * dt;
+
+  // Analog acceleration (intensity affects speed target)
+  if(fwd) cat.speed = Math.min(cat.speed+cat.accel*dt, maxSpd * fwd);
+  else if(bwd) cat.speed = Math.max(cat.speed-cat.accel*dt, -maxSpd*0.35 * bwd);
+  else {
+    if(cat.speed>0) cat.speed=Math.max(0,cat.speed-cat.decel*dt);
+    else cat.speed=Math.min(0,cat.speed+cat.decel*dt);
+  }
+
+  // Horizontal movement
+  const dx = Math.sin(cat.angle)*cat.speed*dt;
+  const dz = Math.cos(cat.angle)*cat.speed*dt;
+  cat.pos.x += dx;
+  cat.pos.z += dz;
+
+  // Clamp to world
+  cat.pos.x = Math.max(-WORLD/2+2, Math.min(WORLD/2-2, cat.pos.x));
+  cat.pos.z = Math.max(-WORLD/2+2, Math.min(WORLD/2-2, cat.pos.z));
+
+  // Ground height at cat pos
+  const groundY = getHeight(cat.pos.x, cat.pos.z);
+
+  // Vertical physics (jump)
+  if(jump && cat.onGround){
+    cat.jumpVel = cat.jumpForce;
+    cat.onGround = false;
+  }
+
+  cat.jumpVel += cat.gravity * dt;
+  cat.pos.y += cat.jumpVel * dt;
+
+  if(cat.pos.y <= groundY){
+    cat.pos.y = groundY;
+    cat.jumpVel = 0;
+    cat.onGround = true;
+  }
+
+  // Bob
+  const absSpd = Math.abs(cat.speed);
+  if(absSpd>0.5 && cat.onGround){
+    cat.bobPhase += dt*absSpd*2.5;
+    catGroup.position.y = cat.pos.y + Math.abs(Math.sin(cat.bobPhase))*0.1;
+    catGroup.rotation.x = Math.sin(cat.bobPhase*0.5)*0.04;
+  } else {
+    catGroup.position.y = cat.pos.y;
+    catGroup.rotation.x = cat.onGround ? 0 : (cat.jumpVel>0 ? 0.2 : -0.15);
+  }
+  catGroup.position.x = cat.pos.x;
+  catGroup.position.z = cat.pos.z;
+  catGroup.rotation.y = cat.angle;
+
+  // Invincibility blink
+  if(invincibleTimer > 0){
+    invincibleTimer -= dt;
+    catGroup.visible = Math.sin(invincibleTimer*20) > 0;
+  } else {
+    catGroup.visible = true;
+  }
+
+  // ── Fish ──
+  coins.forEach(c=>{
+    if(!c.alive) return;
+    // Swimming motion: gentle Y rotation oscillation + bob
+    c.mesh.rotation.y = Math.PI/2 + Math.sin(time*2.0 + c.x*0.5)*0.4;
+    c.mesh.position.y = c.baseY + Math.sin(time*2.5+c.x)*0.25;
+    // Slight tail wag via small z-oscillation
+    c.mesh.position.x = c.x + Math.sin(time*3+c.z)*0.08;
+    // Collect
+    const dx=cat.pos.x-c.x, dz=cat.pos.z-c.z;
+    if(dx*dx+dz*dz < 2.0 && Math.abs(cat.pos.y-c.mesh.position.y)<2.5){
+      c.alive=false;
+      scene.remove(c.mesh);
+      score += c.points;
+      fishCollected++;
+      combo++; comboTimer=2;
+      if(combo>1) score += combo*5;
+      updateHUD();
+    }
+  });
+
+  // Combo timer
+  if(comboTimer>0){ comboTimer-=dt; if(comboTimer<=0){ combo=0; updateHUD(); }}
+
+  // ── Enemies ──
+  enemies.forEach(e=>{
+    if(!e.alive){
+      if(e.squashTime>0){
+        e.squashTime-=dt;
+        e.mesh.scale.y = e.squashTime*2;
+        e.mesh.scale.x = 1+( 1-e.squashTime*2)*0.5;
+        e.mesh.scale.z = 1+(1-e.squashTime*2)*0.5;
+        if(e.squashTime<=0) scene.remove(e.mesh);
+      }
+      return;
+    }
+
+    // Patrol
+    e.t += dt*e.speed*0.5;
+    const nx = e.baseX + Math.cos(e.dir)*Math.sin(e.t)*e.range;
+    const nz = e.baseZ + Math.sin(e.dir)*Math.sin(e.t)*e.range;
+    const ny = getHeight(nx, nz);
+    e.mesh.position.set(nx, ny, nz);
+    e.x=nx; e.z=nz;
+    e.mesh.rotation.y = e.dir + Math.sin(e.t)*0.5;
+    // Bob
+    e.mesh.position.y = ny + Math.abs(Math.sin(time*3+e.baseX))*0.15;
+
+    // Collision with cat
+    const ddx=cat.pos.x-nx, ddz=cat.pos.z-nz;
+    const dist2=ddx*ddx+ddz*ddz;
+    if(dist2 < 1.2){
+      // Cat is above enemy? → stomp!
+      if(cat.pos.y > ny+0.6 && cat.jumpVel < 0){
+        e.alive=false;
+        e.squashTime=0.5;
+        cat.jumpVel = cat.jumpForce*0.7; // bounce
+        score += 50;
+        enemiesDefeated++;
+        combo++; comboTimer=2;
+        if(combo>1) score += combo*10;
+        updateHUD();
+      } else {
+        // Damage
+        takeDamage();
+        // Knockback
+        const kbAngle = Math.atan2(ddx, ddz);
+        cat.pos.x += Math.sin(kbAngle)*3;
+        cat.pos.z += Math.cos(kbAngle)*3;
+        cat.speed = 0;
+      }
+    }
+  });
+
+  // ── Camera (third-person) ──
+  const followDist = 7 + absSpd*0.12;
+  const followH = 3.5 + absSpd*0.06 + Math.max(0,(cat.pos.y - groundY)*0.3);
+  const camX = cat.pos.x - Math.sin(cat.angle)*followDist;
+  const camZ = cat.pos.z - Math.cos(cat.angle)*followDist;
+  const camY = cat.pos.y + followH;
+  const targetCam = new THREE.Vector3(camX, camY + getHeight(camX,camZ)*0.15, camZ);
+  const targetLook = new THREE.Vector3(
+    cat.pos.x + Math.sin(cat.angle)*3,
+    cat.pos.y + 1.2,
+    cat.pos.z + Math.cos(cat.angle)*3
+  );
+
+  camera.position.lerp(targetCam, dt*4);
+  camFill.position.copy(camera.position);
+
+  // Screen shake on milestone
+  if(screenShakeTimer > 0){
+    screenShakeTimer -= dt;
+    const intensity = screenShakeTimer * 0.8;
+    camera.position.x += (Math.random()-0.5)*intensity;
+    camera.position.y += (Math.random()-0.5)*intensity*0.5;
+  }
+
+  const cd = new THREE.Vector3(); camera.getWorldDirection(cd);
+  const dd = targetLook.clone().sub(camera.position).normalize();
+  cd.lerp(dd, dt*4);
+  camera.lookAt(camera.position.clone().add(cd.multiplyScalar(10)));
+
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
